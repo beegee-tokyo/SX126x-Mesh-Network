@@ -196,14 +196,6 @@ void loop()
 	if (xSemaphoreTake(accessNodeList, (TickType_t)1000) == pdTRUE)
 	{
 		numElements = numOfNodes();
-		Serial.printf("%d nodes in the map\n", numElements + 1);
-		Serial.printf("Node #01 id: %08X\n", deviceID);
-		if (bleUARTisConnected) {
-			int sendLen = snprintf(sendData, 512, "%d nodes in the map\n", numElements + 1);
-			bleUartWrite(sendData, sendLen);
-			sendLen = snprintf(sendData, 512, "Node #01 id: %08X\n", deviceID);
-			bleUartWrite(sendData, sendLen);
-		}
 #ifdef HAS_DISPLAY
 		dispWriteHeader();
 		char line[128];
@@ -260,6 +252,15 @@ void loop()
 		}
 
 		// Display the nodes
+		Serial.printf("%d nodes in the map\n", numElements + 1);
+		Serial.printf("Node #01 id: %08X\n", deviceID);
+		if (bleUARTisConnected)
+		{
+			int sendLen = snprintf(sendData, 512, "%d nodes in the map\n", numElements + 1);
+			bleUartWrite(sendData, sendLen);
+			sendLen = snprintf(sendData, 512, "Node #01 id: %08X\n", deviceID);
+			bleUartWrite(sendData, sendLen);
+		}
 		for (int idx = 0; idx < numElements; idx++)
 		{
 #ifdef HAS_DISPLAY
@@ -344,6 +345,8 @@ void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSn
 		// int sendLen = snprintf(sendData, 512, "Received data package:%s\n", rxPayload);
 		// bleUartWrite(sendData, sendLen);
 		bleUartWrite((char *)rxPayload, rxSize);
+		sendData[0] = '\n';
+		bleUartWrite(sendData, 1);
 	}
 
 #if defined(HAS_DISPLAY) || defined(RED_ESP)
