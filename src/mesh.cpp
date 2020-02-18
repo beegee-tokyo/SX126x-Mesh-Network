@@ -175,7 +175,7 @@ void initMesh(MeshEvents_t *events, int numOfNodes)
 		myLog_d("LoRa message queue created!");
 	}
 
-	if (!xTaskCreate(meshTask, "MeshSync", 2048, NULL, 1, &meshTaskHandle))
+	if (!xTaskCreate(meshTask, "MeshSync", 3096, NULL, 1, &meshTaskHandle))
 	{
 		myLog_e("Starting Mesh Sync Task failed");
 	}
