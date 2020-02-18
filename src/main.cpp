@@ -100,6 +100,8 @@ uint32_t firstHop[48];
 uint8_t numHops[48];
 uint8_t numElements;
 
+char sendData[512] = {0};
+
 void ledOff(void)
 {
 #if defined(HAS_DISPLAY) || defined(RED_ESP)
@@ -197,7 +199,6 @@ void loop()
 		Serial.printf("%d nodes in the map\n", numElements + 1);
 		Serial.printf("Node #01 id: %08X\n", deviceID);
 		if (bleUARTisConnected) {
-			char sendData[512] = {0};
 			int sendLen = snprintf(sendData, 512, "%d nodes in the map\n", numElements + 1);
 			bleUartWrite(sendData, sendLen);
 			sendLen = snprintf(sendData, 512, "Node #01 id: %08X\n", deviceID);
@@ -230,7 +231,6 @@ void loop()
 			Serial.printf("Queuing msg to hop to %08X over %08X\n", outData.from, outData.dest);
 			if (bleUARTisConnected)
 			{
-				char sendData[512] = {0};
 				int sendLen = snprintf(sendData, 512, "Queuing msg to hop to %08X over %08X\n", outData.from, outData.dest);
 				bleUartWrite(sendData, sendLen);
 			}
@@ -243,7 +243,6 @@ void loop()
 			Serial.printf("Queuing msg direct to %08X\n", outData.dest);
 			if (bleUARTisConnected)
 			{
-				char sendData[512] = {0};
 				int sendLen = snprintf(sendData, 512, "Queuing msg direct to %08X\n", outData.dest);
 				bleUartWrite(sendData, sendLen);
 			}
@@ -255,7 +254,6 @@ void loop()
 			Serial.println("Sending package failed");
 			if (bleUARTisConnected)
 			{
-				char sendData[512] = {0};
 				int sendLen = snprintf(sendData, 512, "Sending package failed\n");
 				bleUartWrite(sendData, sendLen);
 			}
@@ -294,7 +292,6 @@ void loop()
 				Serial.printf("Node #%02d id: %08X direct\n", idx + 2, nodeId[idx]);
 				if (bleUARTisConnected)
 				{
-					char sendData[512] = {0};
 					int sendLen = snprintf(sendData, 512, "Node #%02d id: %08LX direct\n", idx + 2, nodeId[idx]);
 					bleUartWrite(sendData, sendLen);
 				}
@@ -304,7 +301,6 @@ void loop()
 				Serial.printf("Node #%02d id: %08X first hop %08X #hops %d\n", idx + 2, nodeId[idx], firstHop[idx], numHops[idx]);
 				if (bleUARTisConnected)
 				{
-					char sendData[512] = {0};
 					int sendLen = snprintf(sendData, 512, "Node #%02d id: %08X first hop %08X #hops %d\n", idx + 2, nodeId[idx], firstHop[idx], numHops[idx]);
 					bleUartWrite(sendData, sendLen);
 				}
@@ -345,9 +341,9 @@ void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSn
 	Serial.println("-------------------------------------");
 	if (bleUARTisConnected)
 	{
-		char sendData[1024] = {0};
-		int sendLen = snprintf(sendData, 1024, "Received data package:\n%s\n", rxPayload);
-		bleUartWrite(sendData, sendLen);
+		// int sendLen = snprintf(sendData, 512, "Received data package:%s\n", rxPayload);
+		// bleUartWrite(sendData, sendLen);
+		bleUartWrite((char *)rxPayload, rxSize);
 	}
 
 #if defined(HAS_DISPLAY) || defined(RED_ESP)
