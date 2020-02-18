@@ -85,6 +85,8 @@ int _numOfNodes = 0;
 /** Timeout for RX after Preamble detection */
 time_t preambTimeout;
 
+boolean nodesChanged = false;
+
 /**
  * Initialize the MESH functions
  */
@@ -212,6 +214,14 @@ void meshTask(void *pvParameters)
 	{
 		Radio.IrqProcess();
 
+		if (nodesChanged)
+		{
+			nodesChanged = false;
+			if ((_MeshEvents != NULL) && (_MeshEvents->NodesListChanged != NULL))
+			{
+				_MeshEvents->NodesListChanged();
+			}
+		}
 		// Time to sync the Mesh ???
 		if ((millis() - notifyTimer) >= syncTime)
 		{
@@ -222,8 +232,11 @@ void meshTask(void *pvParameters)
 				{
 					syncTime = INIT_SYNCTIME;
 					checkSwitchSyncTime = millis();
+					if ((_MeshEvents != NULL) && (_MeshEvents->NodesListChanged != NULL))
+					{
+						_MeshEvents->NodesListChanged();
+					}
 				}
-
 				myLog_d("Sending mesh map");
 				syncMsg.from = deviceID;
 				syncMsg.type = 5;
@@ -469,7 +482,7 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 			}
 			if (xSemaphoreTake(accessNodeList, (TickType_t)1000) == pdTRUE)
 			{
-				addNode(thisMsg->from, 0, 0);
+				nodesChanged = addNode(thisMsg->from, 0, 0);
 
 				// if (!checkValidId(thisMsg->from))
 				// {
@@ -524,7 +537,7 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 							// 	}
 							// 	Serial.println("");
 							// }
-							addNode(subId, thisMsg->from, hops + 1);
+							nodesChanged |= addNode(subId, thisMsg->from, hops + 1);
 							myLog_v("Subs %08X", subId);
 						}
 					}

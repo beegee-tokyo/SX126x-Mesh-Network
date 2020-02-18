@@ -38,6 +38,11 @@ typedef struct
      *                     LoRa: SNR value in dB
      */
 	void (*DataAvailable)(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
+
+	/*!
+     * \brief Nodes list change callback prototype.
+     */
+	void (*NodesListChanged)(void);
 } MeshEvents_t;
 
 // LoRa Mesh functions & variables
@@ -83,7 +88,7 @@ struct nodesList
 };
 
 bool getRoute(uint32_t id, nodesList *route);
-void addNode(uint32_t id, uint32_t hop, uint8_t numHops);
+boolean addNode(uint32_t id, uint32_t hop, uint8_t numHops);
 void removeNode(uint32_t id);
 void clearSubs(uint32_t id);
 bool cleanMap(void);

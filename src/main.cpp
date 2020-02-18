@@ -83,6 +83,8 @@ SPIClass SPI_LORA(NRF_SPIM2, MISO, SCK, MOSI);
 #endif
 
 void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr);
+void onNodesListChange(void);
+
 static MeshEvents_t MeshEvents;
 
 #ifdef ESP32
@@ -101,6 +103,10 @@ uint8_t numHops[48];
 uint8_t numElements;
 
 char sendData[512] = {0};
+
+boolean nodesListChanged = false;
+
+time_t sendRandom;
 
 void ledOff(void)
 {
@@ -180,6 +186,7 @@ void setup()
 	myLog_w("Got syncword %X", readSyncWord);
 
 	MeshEvents.DataAvailable = OnLoraData;
+	MeshEvents.NodesListChanged = onNodesListChange;
 
 	// Initialize the LoRa Mesh
 #ifdef ESP32
@@ -187,136 +194,167 @@ void setup()
 #else
 	initMesh(&MeshEvents, 30);
 #endif
+	sendRandom = millis();
 }
 
 void loop()
 {
-	delay(30000);
-	Serial.println("---------------------------------------------");
-	if (xSemaphoreTake(accessNodeList, (TickType_t)1000) == pdTRUE)
+	delay(100);
+
+	if ((millis() - sendRandom) >= 30000)
 	{
-		numElements = numOfNodes();
-#ifdef HAS_DISPLAY
-		dispWriteHeader();
-		char line[128];
-		// sprintf(line, "%08X", deviceID);
-		sprintf(line, "%02X%02X", (uint8_t)(deviceID >> 24), (uint8_t)(deviceID >> 16));
-		dispWrite(line, 0, 11);
-#endif
-		for (int idx = 0; idx < numElements; idx++)
+		// Time to send a package
+		if (xSemaphoreTake(accessNodeList, (TickType_t)1000) == pdTRUE)
 		{
-			getNode(idx, nodeId[idx], firstHop[idx], numHops[idx]);
-		}
-		// Select random node to send a package
-		getRoute(nodeId[random(0, numElements)], &routeToNode);
-		// Release access to nodes list
-		xSemaphoreGive(accessNodeList);
-		// Prepare data
-		outData.mark1 = 'L';
-		outData.mark2 = 'o';
-		outData.mark3 = 'R';
-		if (routeToNode.firstHop != 0)
-		{
-			outData.dest = routeToNode.firstHop;
-			outData.from = routeToNode.nodeId;
-			outData.type = 2;
-			Serial.printf("Queuing msg to hop to %08X over %08X\n", outData.from, outData.dest);
-			if (bleUARTisConnected)
+			numElements = numOfNodes();
+			if (numOfNodes() >= 2)
 			{
-				int sendLen = snprintf(sendData, 512, "Queuing msg to hop to %08X over %08X\n", outData.from, outData.dest);
-				bleUartWrite(sendData, sendLen);
+				sendRandom = millis();
+				// Select random node to send a package
+				getRoute(nodeId[random(0, numElements)], &routeToNode);
+				// Release access to nodes list
+				xSemaphoreGive(accessNodeList);
+				// Prepare data
+				outData.mark1 = 'L';
+				outData.mark2 = 'o';
+				outData.mark3 = 'R';
+				if (routeToNode.firstHop != 0)
+				{
+					outData.dest = routeToNode.firstHop;
+					outData.from = routeToNode.nodeId;
+					outData.type = 2;
+					Serial.printf("Queuing msg to hop to %08X over %08X\n", outData.from, outData.dest);
+					if (bleUARTisConnected)
+					{
+						int sendLen = snprintf(sendData, 512, "Queuing msg to hop to %08X over %08X\n", outData.from, outData.dest);
+						bleUartWrite(sendData, sendLen);
+					}
+				}
+				else
+				{
+					outData.dest = routeToNode.nodeId;
+					outData.from = deviceID;
+					outData.type = 1;
+					Serial.printf("Queuing msg direct to %08X\n", outData.dest);
+					if (bleUARTisConnected)
+					{
+						int sendLen = snprintf(sendData, 512, "Queuing msg direct to %08X\n", outData.dest);
+						bleUartWrite(sendData, sendLen);
+					}
+				}
+				int dataLen = MAP_HEADER_SIZE + sprintf((char *)outData.data, ">>%08X<<", deviceID);
+				// Add package to send queue
+				if (!addSendRequest(&outData, dataLen))
+				{
+					Serial.println("Sending package failed");
+					if (bleUARTisConnected)
+					{
+						int sendLen = snprintf(sendData, 512, "Sending package failed\n");
+						bleUartWrite(sendData, sendLen);
+					}
+				}
+			}
+			else
+			{
+				// Release access to nodes list
+				xSemaphoreGive(accessNodeList);
+				myLog_d("Not enough nodes in the list");
 			}
 		}
 		else
 		{
-			outData.dest = routeToNode.nodeId;
-			outData.from = deviceID;
-			outData.type = 1;
-			Serial.printf("Queuing msg direct to %08X\n", outData.dest);
-			if (bleUARTisConnected)
-			{
-				int sendLen = snprintf(sendData, 512, "Queuing msg direct to %08X\n", outData.dest);
-				bleUartWrite(sendData, sendLen);
-			}
+			Serial.println("Could not access the nodes list");
 		}
-		int dataLen = MAP_HEADER_SIZE + sprintf((char *)outData.data, ">>%08X<<", deviceID);
-		// Add package to send queue
-		if (!addSendRequest(&outData, dataLen))
-		{
-			Serial.println("Sending package failed");
-			if (bleUARTisConnected)
-			{
-				int sendLen = snprintf(sendData, 512, "Sending package failed\n");
-				bleUartWrite(sendData, sendLen);
-			}
-		}
-
-		// Display the nodes
-		Serial.printf("%d nodes in the map\n", numElements + 1);
-		Serial.printf("Node #01 id: %08X\n", deviceID);
-		if (bleUARTisConnected)
-		{
-			int sendLen = snprintf(sendData, 512, "%d nodes in the map\n", numElements + 1);
-			bleUartWrite(sendData, sendLen);
-			sendLen = snprintf(sendData, 512, "Node #01 id: %08X\n", deviceID);
-			bleUartWrite(sendData, sendLen);
-		}
-		for (int idx = 0; idx < numElements; idx++)
-		{
-#ifdef HAS_DISPLAY
-			if (firstHop[idx] == 0)
-			{
-				// sprintf(line, "%08X", nodeId[idx]);
-				sprintf(line, "%02X%02X", (uint8_t)(nodeId[idx] >> 24), (uint8_t)(nodeId[idx] >> 16));
-			}
-			else
-			{
-				// sprintf(line, "%08X*", nodeId[idx]);
-				sprintf(line, "%02X%02X*", (uint8_t)(nodeId[idx] >> 24), (uint8_t)(nodeId[idx] >> 16));
-			}
-			if (idx < 4)
-			{
-				dispWrite(line, 0, ((idx + 2) * 10) + 1);
-			}
-			else if (idx < 9)
-			{
-				dispWrite(line, 42, ((idx - 3) * 10) + 1);
-			}
-			else
-			{
-				dispWrite(line, 84, ((idx - 8) * 10) + 1);
-			}
-			
-#endif
-			if (firstHop[idx] == 0)
-			{
-				Serial.printf("Node #%02d id: %08X direct\n", idx + 2, nodeId[idx]);
-				if (bleUARTisConnected)
-				{
-					int sendLen = snprintf(sendData, 512, "Node #%02d id: %08LX direct\n", idx + 2, nodeId[idx]);
-					bleUartWrite(sendData, sendLen);
-				}
-			}
-			else
-			{
-				Serial.printf("Node #%02d id: %08X first hop %08X #hops %d\n", idx + 2, nodeId[idx], firstHop[idx], numHops[idx]);
-				if (bleUARTisConnected)
-				{
-					int sendLen = snprintf(sendData, 512, "Node #%02d id: %08X first hop %08X #hops %d\n", idx + 2, nodeId[idx], firstHop[idx], numHops[idx]);
-					bleUartWrite(sendData, sendLen);
-				}
-			}
-		}
-#ifdef HAS_DISPLAY
-		dispUpdate();
-#endif
 	}
-	else
+
+	if (nodesListChanged)
 	{
-		Serial.println("Could not access the nodes list");
-	}
+		// Nodes list changed, update display and report it
+		nodesListChanged = false;
+		Serial.println("---------------------------------------------");
+		if (xSemaphoreTake(accessNodeList, (TickType_t)1000) == pdTRUE)
+		{
+			numElements = numOfNodes();
+#ifdef HAS_DISPLAY
+			dispWriteHeader();
+			char line[128];
+			// sprintf(line, "%08X", deviceID);
+			sprintf(line, "%02X%02X", (uint8_t)(deviceID >> 24), (uint8_t)(deviceID >> 16));
+			dispWrite(line, 0, 11);
+#endif
+			for (int idx = 0; idx < numElements; idx++)
+			{
+				getNode(idx, nodeId[idx], firstHop[idx], numHops[idx]);
+			}
+			// Release access to nodes list
+			xSemaphoreGive(accessNodeList);
+			// Display the nodes
+			Serial.printf("%d nodes in the map\n", numElements + 1);
+			Serial.printf("Node #01 id: %08X\n", deviceID);
+			if (bleUARTisConnected)
+			{
+				int sendLen = snprintf(sendData, 512, "%d nodes in the map\n", numElements + 1);
+				bleUartWrite(sendData, sendLen);
+				sendLen = snprintf(sendData, 512, "Node #01 id: %08X\n", deviceID);
+				bleUartWrite(sendData, sendLen);
+			}
+			for (int idx = 0; idx < numElements; idx++)
+			{
+#ifdef HAS_DISPLAY
+				if (firstHop[idx] == 0)
+				{
+					// sprintf(line, "%08X", nodeId[idx]);
+					sprintf(line, "%02X%02X", (uint8_t)(nodeId[idx] >> 24), (uint8_t)(nodeId[idx] >> 16));
+				}
+				else
+				{
+					// sprintf(line, "%08X*", nodeId[idx]);
+					sprintf(line, "%02X%02X*", (uint8_t)(nodeId[idx] >> 24), (uint8_t)(nodeId[idx] >> 16));
+				}
+				if (idx < 4)
+				{
+					dispWrite(line, 0, ((idx + 2) * 10) + 1);
+				}
+				else if (idx < 9)
+				{
+					dispWrite(line, 42, ((idx - 3) * 10) + 1);
+				}
+				else
+				{
+					dispWrite(line, 84, ((idx - 8) * 10) + 1);
+				}
 
-	Serial.println("---------------------------------------------");
+#endif
+				if (firstHop[idx] == 0)
+				{
+					Serial.printf("Node #%02d id: %08X direct\n", idx + 2, nodeId[idx]);
+					if (bleUARTisConnected)
+					{
+						int sendLen = snprintf(sendData, 512, "Node #%02d id: %08LX direct\n", idx + 2, nodeId[idx]);
+						bleUartWrite(sendData, sendLen);
+					}
+				}
+				else
+				{
+					Serial.printf("Node #%02d id: %08X first hop %08X #hops %d\n", idx + 2, nodeId[idx], firstHop[idx], numHops[idx]);
+					if (bleUARTisConnected)
+					{
+						int sendLen = snprintf(sendData, 512, "Node #%02d id: %08X first hop %08X #hops %d\n", idx + 2, nodeId[idx], firstHop[idx], numHops[idx]);
+						bleUartWrite(sendData, sendLen);
+					}
+				}
+			}
+#ifdef HAS_DISPLAY
+			dispUpdate();
+#endif
+		}
+		else
+		{
+			Serial.println("Could not access the nodes list");
+		}
+
+		Serial.println("---------------------------------------------");
+	}
 }
 
 /**
@@ -342,11 +380,11 @@ void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSn
 	Serial.println("-------------------------------------");
 	if (bleUARTisConnected)
 	{
-		// int sendLen = snprintf(sendData, 512, "Received data package:%s\n", rxPayload);
-		// bleUartWrite(sendData, sendLen);
-		bleUartWrite((char *)rxPayload, rxSize);
-		sendData[0] = '\n';
-		bleUartWrite(sendData, 1);
+		int sendLen = snprintf(sendData, 512, "Received data package:%s\n", rxPayload);
+		bleUartWrite(sendData, sendLen);
+		// bleUartWrite((char *)rxPayload, rxSize);
+		// sendData[0] = '\n';
+		// bleUartWrite(sendData, 1);
 	}
 
 #if defined(HAS_DISPLAY) || defined(RED_ESP)
@@ -360,4 +398,12 @@ void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSn
 #else
 	timer.attachInterrupt(&ledOff, 1000 * 1000); // microseconds
 #endif
+}
+
+/**
+ * Callback after the nodes list changed
+ */
+void onNodesListChange(void)
+{
+	nodesListChanged = true;
 }

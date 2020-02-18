@@ -28,8 +28,9 @@ bool getRoute(uint32_t id, nodesList *route)
 	return false;
 }
 
-void addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
+boolean addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
 {
+	boolean listChanged = false;
 	nodesList _newNode;
 	_newNode.nodeId = id;
 	_newNode.firstHop = hop;
@@ -47,7 +48,7 @@ void addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
 					nodesMap[idx].timeStamp = millis();
 				}
 				myLog_w("Node %08X already exists as direct", _newNode.nodeId);
-				return;
+				return listChanged;
 			}
 			else
 			{
@@ -66,7 +67,7 @@ void addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
 					{
 						// Node entry exist with smaller # of hops
 						myLog_w("Node %08X exist with a lower number of hops", _newNode.nodeId);
-						return;
+						return listChanged;
 					}
 					else
 					{
@@ -96,11 +97,14 @@ void addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
 	{
 		// Map is full, remove oldest entry
 		deleteRoute(0);
+		listChanged = true;
 	}
 
 	// New node entry
 	memcpy(&nodesMap[newEntry], &_newNode, sizeof(nodesList));
-myLog_w("Added node %lX with hop %lX and num hops %d", id, hop, hopNum);
+	listChanged = true;
+	myLog_w("Added node %lX with hop %lX and num hops %d", id, hop, hopNum);
+	return listChanged;
 }
 
 void clearSubs(uint32_t id)
