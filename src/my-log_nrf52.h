@@ -7,7 +7,6 @@
 
 const char *pathToFileNameNRF(const char *path);
 
-
 #if __cplusplus
 #ifndef PRINTF
 #define PRINTF ::printf
@@ -109,18 +108,18 @@ const char *pathToFileNameNRF(const char *path);
 #endif
 
 #if MYLOG_LOG_LEVEL >= MYLOG_LOG_LEVEL_NONE
-#define myLog_n(...)                      \
-	do                                    \
-	{                                     \
-		PRINTF("[N]");                    \
-		PRINTF("[");                      \
+#define myLog_n(...)                         \
+	do                                       \
+	{                                        \
+		PRINTF("[N]");                       \
+		PRINTF("[");                         \
 		PRINTF(pathToFileNameNRF(__FILE__)); \
-		PRINTF(":%d", __LINE__);          \
-		PRINTF("]");                      \
-		PRINTF(__FUNCTION__);             \
-		PRINTF(": ");                     \
-		PRINTF(__VA_ARGS__);              \
-		PRINTF("\n");                     \
+		PRINTF(":%d", __LINE__);             \
+		PRINTF("]");                         \
+		PRINTF(__FUNCTION__);                \
+		PRINTF(": ");                        \
+		PRINTF(__VA_ARGS__);                 \
+		PRINTF("\n");                        \
 	} while (0)
 #else
 #define myLog_n(format, ...)

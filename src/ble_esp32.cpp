@@ -103,6 +103,10 @@ class UartTxCbHandler : public BLECharacteristicCallbacks
 	};
 };
 
+/**
+ * Callbacks for BLE client descriptor changes
+ * on BLE UART characteristic
+ */
 class DescriptorCallbacks : public BLEDescriptorCallbacks
 {
 	void onWrite(BLEDescriptor *pDescriptor)
@@ -245,7 +249,7 @@ size_t bleUartWrite(char *data, size_t buffSize)
 		pCharacteristicUartTX->setValue(txData, BUFF_SIZE);
 		pCharacteristicUartTX->notify();
 		delay(100);
-		return (size_t) BUFF_SIZE;
+		return (size_t)BUFF_SIZE;
 	}
 }
 

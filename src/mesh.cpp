@@ -18,7 +18,7 @@ uint32_t deviceID;
 mapMsg syncMsg;
 
 /** Max number of messages in the queue */
-#define SEND_QUEUE_SIZE 10
+#define SEND_QUEUE_SIZE 2
 /** Send buffer for SEND_QUEUE_SIZE messages */
 dataMsg sendMsg[SEND_QUEUE_SIZE];
 /** Message size buffer for SEND_QUEUE_SIZE messages */
@@ -32,11 +32,11 @@ portMUX_TYPE accessMsgQueue = portMUX_INITIALIZER_UNLOCKED;
 /** Mux used to enter critical code part (access to node list) */
 SemaphoreHandle_t accessNodeList;
 
-/** Package to be sent */
+/** LoRa TX package */
 uint8_t txPckg[256];
 /** Size of data package */
 uint16_t txLen = 0;
-
+/** LoRa RX buffer */
 uint8_t rxBuffer[256];
 
 /** Sync time for routing at start */
@@ -70,42 +70,31 @@ typedef enum
 	MESH_NOTIF	 //!< The radio is doing mesh notification
 } meshRadioState_t;
 
+/** Lora statemachine status */
 meshRadioState_t loraState = MESH_IDLE;
 
 /** LoRa callback events */
 static RadioEvents_t RadioEvents;
 
-/*!
- * Mesh callback variable
- */
+/** Mesh callback variable */
 static MeshEvents_t *_MeshEvents;
 
+/** Number of nodes in the map */
 int _numOfNodes = 0;
 
 /** Timeout for RX after Preamble detection */
 time_t preambTimeout;
 
+/** Flag if the nodes map has changed */
 boolean nodesChanged = false;
 
 /**
- * Initialize the MESH functions
+ * Initialize the Mesh network
+ * @param events
+ * 		Structure of event callbacks
+ * @param numOfNodes
+ * 		Number of nodes that the Mesh network can accept.
  */
-// void initMesh(MeshEvents_t *events, int numOfNodes, RadioModems_t modem, uint32_t fre, int8_t power,
-// 			  uint32_t fdev,
-// 			  uint32_t bandwidth,
-// 			  uint32_t datarate,
-// 			  uint8_t coderate,
-// 			  uint16_t preambleLen,
-// 			  bool fixLen,
-// 			  bool crcOn,
-// 			  bool freqHopOn,
-// 			  uint8_t hopPeriod,
-// 			  bool iqInverted,
-// 			  uint32_t timeout,
-// 			  uint32_t bandwidthAfc,
-// 			  uint16_t symbTimeout,
-// 			  uint8_t payloadLen,
-// 			  bool rxContinuous)
 void initMesh(MeshEvents_t *events, int numOfNodes)
 {
 	_MeshEvents = events;
@@ -159,7 +148,6 @@ void initMesh(MeshEvents_t *events, int numOfNodes)
 					  LORA_SPREADING_FACTOR, LORA_CODINGRATE,
 					  LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
 					  true, 0, 0, LORA_IQ_INVERSION_ON, TX_TIMEOUT_VALUE);
-
 	// Set receive configuration
 	Radio.SetRxConfig(MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
 					  LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
@@ -189,6 +177,8 @@ void initMesh(MeshEvents_t *events, int numOfNodes)
 
 /**
  * Task to handle the mesh
+ * @param pvParameters
+ * 		Unused task parameters
  */
 void meshTask(void *pvParameters)
 {
@@ -347,13 +337,13 @@ void meshTask(void *pvParameters)
 
 /**
  * Callback after a LoRa package was received
- * @param payload
+ * @param rxPayload
  * 			Pointer to the received data
- * @param size
+ * @param rxSize
  * 			Length of the received package
- * @param rssi
+ * @param rxRssi
  * 			Signal strength while the package was received
- * @param snr
+ * @param rxSnr
  * 			Signal to noise ratio while the package was received
  */
 void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
@@ -782,7 +772,9 @@ void OnCadDone(bool cadResult)
 /**
  * Add a data package to the queue
  * @param package
- * 			dataPckg * to the sensor data
+ * 			dataPckg * to the package data
+ * @param msgSize
+ * 			Size of the data package
  * @return result
  * 			TRUE if task could be added to queue
  * 			FALSE if queue is full or not initialized 

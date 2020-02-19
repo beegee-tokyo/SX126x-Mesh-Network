@@ -28,8 +28,8 @@ Here is a list of the important defines:
     - defines the GPIO used to connect the SCL
 - -DRED_ESP=1
   - Used to select a specific setup for an Elecrow ESP32S WIFI BLE Board v1.0 board
-- -DIS_NOT_FEATHER=1
-  - Used to distinguish between the Adafruit ESP32 HUZZAH Feathers and other ESP32 boards
+- -DIS_WROVER=1
+  - Used to distinguish between the ESP32 Wrover board and other ESP32 boards
 
 Other defines used in the code, but setup by the PlatformIO packages
 - ISP4520

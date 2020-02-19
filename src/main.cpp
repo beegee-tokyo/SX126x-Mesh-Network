@@ -1,10 +1,10 @@
 #include "main.h"
 
 /** HW configuration structure for the LoRa library */
-hw_config hwConfig;
+extern hw_config _hwConfig;
 
 #ifdef ESP32
-#ifdef IS_NOT_FEATHER
+#ifdef IS_WROVER
 // ESP32 Wrover - SX126x pin configuration
 /** LORA RESET */
 int PIN_LORA_RESET = 4;
@@ -82,41 +82,62 @@ SPIClass SPI_LORA(NRF_SPIM2, MISO, SCK, MOSI);
 #endif
 #endif
 
+/** Callback if data was received over LoRa */
 void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr);
+/** Callback if Mesh map changed */
 void onNodesListChange(void);
 
+/** Structure with Mesh event callbacks */
 static MeshEvents_t MeshEvents;
 
 #ifdef ESP32
+/** Timer for the LED control */
 Ticker ledOffTick;
 #else
 #define nrf_timer_num (1)
 #define cc_channel_num (0)
+/** Timer for the LED control */
 TimerClass timer(nrf_timer_num, cc_channel_num);
 #endif
 
+/** Structure for outgoing data */
 dataMsg outData;
+/** Route to the selected receiver node */
 nodesList routeToNode;
+/** Node ID of the selected receiver node */
 uint32_t nodeId[48];
+/** First hop ID of the selected receiver node */
 uint32_t firstHop[48];
+/** Number of hops to the selected receiver node */
 uint8_t numHops[48];
+/** Number of nodes in the map */
 uint8_t numElements;
 
+/** Buffer for BLE data */
 char sendData[512] = {0};
 
+/** Flag if the Mesh map has changed */
 boolean nodesListChanged = false;
 
+/** Timer to send data frequently to random nodes */
 time_t sendRandom;
 
+/** 
+ * Switch off the LED
+ * Triggered by a timer
+ */
 void ledOff(void)
 {
-#if defined(HAS_DISPLAY) || defined(RED_ESP)
+#if defined(IS_WROVER) || defined(RED_ESP)
 	digitalWrite(LED_BUILTIN, HIGH);
 #else
 	digitalWrite(LED_BUILTIN, LOW);
 #endif
 }
 
+/**
+ * Arduino setup
+ */
 void setup()
 {
 #ifdef NRF52
@@ -157,21 +178,21 @@ void setup()
 	// Initialize the LoRa
 #if defined(ESP32) || defined(ADAFRUIT)
 	// Define the HW configuration between MCU and SX126x
-	hwConfig.CHIP_TYPE = SX1262_CHIP;		  // eByte E22 module with an SX1262
-	hwConfig.PIN_LORA_RESET = PIN_LORA_RESET; // LORA RESET
-	hwConfig.PIN_LORA_NSS = PIN_LORA_NSS;	 // LORA SPI CS
-	hwConfig.PIN_LORA_SCLK = PIN_LORA_SCLK;   // LORA SPI CLK
-	hwConfig.PIN_LORA_MISO = PIN_LORA_MISO;   // LORA SPI MISO
-	hwConfig.PIN_LORA_DIO_1 = PIN_LORA_DIO_1; // LORA DIO_1
-	hwConfig.PIN_LORA_BUSY = PIN_LORA_BUSY;   // LORA SPI BUSY
-	hwConfig.PIN_LORA_MOSI = PIN_LORA_MOSI;   // LORA SPI MOSI
-	hwConfig.RADIO_TXEN = RADIO_TXEN;		  // LORA ANTENNA TX ENABLE
-	hwConfig.RADIO_RXEN = RADIO_RXEN;		  // LORA ANTENNA RX ENABLE
-	hwConfig.USE_DIO2_ANT_SWITCH = true;	  // Example uses an eByte E22 module which uses RXEN and TXEN pins as antenna control
-	hwConfig.USE_DIO3_TCXO = true;			  // Example uses an eByte E22 module which uses DIO3 to control oscillator voltage
-	hwConfig.USE_DIO3_ANT_SWITCH = false;	 // Only Insight ISP4520 module uses DIO3 as antenna control
+	_hwConfig.CHIP_TYPE = SX1262_CHIP;		   // eByte E22 module with an SX1262
+	_hwConfig.PIN_LORA_RESET = PIN_LORA_RESET; // LORA RESET
+	_hwConfig.PIN_LORA_NSS = PIN_LORA_NSS;	 // LORA SPI CS
+	_hwConfig.PIN_LORA_SCLK = PIN_LORA_SCLK;   // LORA SPI CLK
+	_hwConfig.PIN_LORA_MISO = PIN_LORA_MISO;   // LORA SPI MISO
+	_hwConfig.PIN_LORA_DIO_1 = PIN_LORA_DIO_1; // LORA DIO_1
+	_hwConfig.PIN_LORA_BUSY = PIN_LORA_BUSY;   // LORA SPI BUSY
+	_hwConfig.PIN_LORA_MOSI = PIN_LORA_MOSI;   // LORA SPI MOSI
+	_hwConfig.RADIO_TXEN = RADIO_TXEN;		   // LORA ANTENNA TX ENABLE
+	_hwConfig.RADIO_RXEN = RADIO_RXEN;		   // LORA ANTENNA RX ENABLE
+	_hwConfig.USE_DIO2_ANT_SWITCH = true;	  // Example uses an eByte E22 module which uses RXEN and TXEN pins as antenna control
+	_hwConfig.USE_DIO3_TCXO = true;			   // Example uses an eByte E22 module which uses DIO3 to control oscillator voltage
+	_hwConfig.USE_DIO3_ANT_SWITCH = false;	 // Only Insight ISP4520 module uses DIO3 as antenna control
 
-	if (lora_hardware_init(hwConfig) != 0)
+	if (lora_hardware_init(_hwConfig) != 0)
 	{
 		myLog_e("Error in hardware init");
 	}
@@ -189,6 +210,7 @@ void setup()
 	MeshEvents.NodesListChanged = onNodesListChange;
 
 	// Initialize the LoRa Mesh
+	// * events, number of nodes, frequency, TX power
 #ifdef ESP32
 	initMesh(&MeshEvents, 48);
 #else
@@ -197,6 +219,9 @@ void setup()
 	sendRandom = millis();
 }
 
+/**
+ * Arduino loop
+ */
 void loop()
 {
 	delay(100);
@@ -359,13 +384,13 @@ void loop()
 
 /**
  * Callback after a LoRa package was received
- * @param payload
+ * @param rxPayload
  * 			Pointer to the received data
- * @param size
+ * @param rxSize
  * 			Length of the received package
- * @param rssi
+ * @param rxRssi
  * 			Signal strength while the package was received
- * @param snr
+ * @param rxSnr
  * 			Signal to noise ratio while the package was received
  */
 void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
@@ -382,12 +407,9 @@ void OnLoraData(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSn
 	{
 		int sendLen = snprintf(sendData, 512, "Received data package:%s\n", rxPayload);
 		bleUartWrite(sendData, sendLen);
-		// bleUartWrite((char *)rxPayload, rxSize);
-		// sendData[0] = '\n';
-		// bleUartWrite(sendData, 1);
 	}
 
-#if defined(HAS_DISPLAY) || defined(RED_ESP)
+#if defined(IS_WROVER) || defined(RED_ESP)
 	digitalWrite(LED_BUILTIN, LOW);
 #else
 	digitalWrite(LED_BUILTIN, HIGH);

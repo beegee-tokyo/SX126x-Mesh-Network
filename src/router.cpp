@@ -1,9 +1,16 @@
 #include "main.h"
 
+/** The list with all known nodes */
 nodesList *nodesMap;
 
+/** Timeout to remove unresponsive nodes */
 time_t inActiveTimeout = 120000;
 
+/**
+ * Delete a node route by copying following routes on top of it.
+ * @param index
+ * 		The node to be deleted
+ */
 void deleteRoute(uint8_t index)
 {
 	// Delete a route by copying following routes on top of it
@@ -12,6 +19,15 @@ void deleteRoute(uint8_t index)
 	nodesMap[_numOfNodes - 1].nodeId = 0;
 }
 
+/**
+ * Find a route to a node
+ * @param id
+ * 		Node ID we need a route to
+ * @param route
+ * 		nodesList struct that will be filled with the route
+ * @return bool
+ * 		True if a route was found, false if not
+ */
 bool getRoute(uint32_t id, nodesList *route)
 {
 	for (int idx = 0; idx < _numOfNodes; idx++)
@@ -28,6 +44,11 @@ bool getRoute(uint32_t id, nodesList *route)
 	return false;
 }
 
+/** 
+ * Add a node into the list.
+ * Checks if the node already exists and
+ * removes node if the existing entry has more hops
+ */
 boolean addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
 {
 	boolean listChanged = false;
@@ -107,6 +128,12 @@ boolean addNode(uint32_t id, uint32_t hop, uint8_t hopNum)
 	return listChanged;
 }
 
+/**
+ * Remove all nodes that are a non direct and have a given node as first hop.
+ * This is to clean up the nodes list from left overs of an unresponsive node
+ * @param id
+ * 		The node which is listed as first hop
+ */
 void clearSubs(uint32_t id)
 {
 	for (int idx = 0; idx < _numOfNodes; idx++)
@@ -120,6 +147,11 @@ void clearSubs(uint32_t id)
 	}
 }
 
+/**
+ * Check the list for nodes that did not be refreshed within a given timeout
+ * @return bool
+ * 			True if no changes were done, false if any node was removed
+ */
 bool cleanMap(void)
 {
 	// Check active nodes list
@@ -149,6 +181,15 @@ bool cleanMap(void)
 	return mapUpToDate;
 }
 
+/**
+ * Create a list of nodes and hops to be broadcasted as this nodes map
+ * @param subs[]
+ * 		Pointer to an array to hold the node IDs
+ * @param hops[]
+ * 		Pointer to an array to hold the hops for the node IDs
+ * @return uint8_t
+ * 		Number of nodes in the list
+ */
 uint8_t nodeMap(uint32_t subs[], uint8_t hops[])
 {
 	uint8_t subsNameIndex = 0;
@@ -169,6 +210,13 @@ uint8_t nodeMap(uint32_t subs[], uint8_t hops[])
 	return subsNameIndex;
 }
 
+/**
+ * Create a list of nodes and hops to be broadcasted as this nodes map
+ * @param nodes[]
+ * 		Pointer to an two dimensional array to hold the node IDs and hops
+ * @return uint8_t
+ * 		Number of nodes in the list
+ */
 uint8_t nodeMap(uint8_t nodes[][5])
 {
 	uint8_t subsNameIndex = 0;
@@ -192,7 +240,12 @@ uint8_t nodeMap(uint8_t nodes[][5])
 	return subsNameIndex;
 }
 
-uint8_t numOfNodes()
+/**
+ * Get number of nodes in the map
+ * @return uint8_t
+ * 		Number of nodes
+ */
+uint8_t numOfNodes(void)
 {
 	uint8_t subsNameIndex = 0;
 
@@ -209,6 +262,19 @@ uint8_t numOfNodes()
 	return subsNameIndex;
 }
 
+/**
+ * Get the information of a specific node
+ * @param nodeNum
+ * 		Index of the node we want to query
+ * @param nodeId
+ * 		Pointer to an uint32_t to save the node ID to
+ * @param firstHop
+ *		Pointer to an uint32_t to save the nodes first hop ID to
+ * @param numHops
+ * 		Pointer to an uint8_t to save the number of hops to
+ * @return bool
+ * 		True if the data could be found, false if the requested index is out of range
+ */
 bool getNode(uint8_t nodeNum, uint32_t &nodeId, uint32_t &firstHop, uint8_t &numHops)
 {
 	if (nodeNum >= numOfNodes())

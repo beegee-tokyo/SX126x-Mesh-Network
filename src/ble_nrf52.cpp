@@ -28,6 +28,8 @@ void startAdv(void);
  */
 void initBLE(void)
 {
+	Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
+
 	Bluefruit.begin();
 	// Set max power. Accepted values are: -40, -30, -20, -16, -12, -8, -4, 0, 4
 	Bluefruit.setTxPower(4);
@@ -73,7 +75,7 @@ int bleUartAvailable(void)
  */
 size_t bleUartRead(char *data, size_t buffSize)
 {
-	return (size_t) bleuart.read(data, buffSize);
+	return (size_t)bleuart.read(data, buffSize);
 }
 
 /**

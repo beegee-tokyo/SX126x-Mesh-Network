@@ -3,12 +3,18 @@
 #ifdef HAS_DISPLAY
 #include <SH1106Wire.h>
 
+/** Number of elements in the mesh map */
+extern uint8_t numElements;
+
+/** Singleton of the display class */
 SH1106Wire display(0x3c, OLED_SDA, OLED_SCL);
-// SH1106Wire display(0x3c, 13, 32);
 
 /** Task to control the LEDs */
 TaskHandle_t displayHandler = NULL;
 
+/**
+ * Initialize the display
+ */
 void initDisplay(void)
 {
 	myLog_d("Display init");
@@ -22,21 +28,36 @@ void initDisplay(void)
 	display.display();
 }
 
+/**
+ * Write the top line of the display
+ */
 void dispWriteHeader(void)
 {
 	display.clear();
 	display.setTextAlignment(TEXT_ALIGN_LEFT);
-	int strWidth = display.getStringWidth("LoRa Mesh Test #dev " + String(numElements+1));
+	int strWidth = display.getStringWidth("LoRa Mesh Test #dev " + String(numElements + 1));
 	display.drawString(64 - (strWidth / 2), 0, "LoRa Mesh Test #dev " + String(numElements + 1));
 	display.display();
 }
 
+/**
+ * Write text to the display
+ * @param text
+ * 		Text to be written
+ * @param x
+ * 		X position where text starts
+ * @param y
+ * 		y position where text starts
+ */
 void dispWrite(String text, int x, int y)
 {
 	display.setTextAlignment(TEXT_ALIGN_LEFT);
 	display.drawString(x, y, text);
 }
 
+/**
+ * Update the display content
+ */
 void dispUpdate(void)
 {
 	display.display();
