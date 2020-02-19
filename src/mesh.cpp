@@ -352,6 +352,8 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 	if (rxSize < 256)
 	{
 		memcpy(rxBuffer, rxPayload, rxSize + 1);
+		// Make sure the data is null terminated
+		rxBuffer[rxSize] = 0;
 	}
 	else
 	{
