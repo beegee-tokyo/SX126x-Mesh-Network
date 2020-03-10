@@ -57,4 +57,4 @@ Other defines used in the code, but setup by the PlatformIO packages
 - The Arduino BSP for Espressif ESP32 based board.
 
 #### [Arduino Core for Circuitrocks Alora Boards](https://github.com/beegee-tokyo/Circuitrocks_ISP4520_Arduino)
-- The Arduino BSP for the ISP4520 boards. Manual installation pf the BSP is required as explained [here](https://github.com/beegee-tokyo/Circuitrocks_ISP4520_Arduino#bsp-installation)
+- The Arduino BSP for the ISP4520 boards. Manual installation of the BSP is required as explained [here](https://github.com/beegee-tokyo/Circuitrocks_ISP4520_Arduino#bsp-installation)

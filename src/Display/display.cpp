@@ -35,8 +35,11 @@ void dispWriteHeader(void)
 {
 	display.clear();
 	display.setTextAlignment(TEXT_ALIGN_LEFT);
-	int strWidth = display.getStringWidth("LoRa Mesh Test #dev " + String(numElements + 1));
-	display.drawString(64 - (strWidth / 2), 0, "LoRa Mesh Test #dev " + String(numElements + 1));
+	// int strWidth = display.getStringWidth("LoRa Mesh Test #dev " + String(numElements + 1));
+	// display.drawString(64 - (strWidth / 2), 0, "LoRa Mesh Test #dev " + String(numElements + 1));
+	char lineString[64] = {0};
+	sprintf(lineString, "LR Mesh %08X #n %d", deviceID, numOfNodes() + 1);
+	display.drawString(0, 0, lineString);
 	display.display();
 }
 

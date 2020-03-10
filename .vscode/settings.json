@@ -4,6 +4,12 @@
 		"PLATFORMIO_CALLER": "vscode"
 	},
 	"files.associations": {
-		"functional": "cpp"
+		"functional": "cpp",
+		"array": "cpp",
+		"*.tcc": "cpp",
+		"memory": "cpp",
+		"istream": "cpp",
+		"tuple": "cpp",
+		"utility": "cpp"
 	}
 }

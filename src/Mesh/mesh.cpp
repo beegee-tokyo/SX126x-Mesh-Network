@@ -13,6 +13,8 @@ uint8_t channelFreeRetryNum = 0;
 
 /** The Mesh node ID, created from ID of the nRF52 */
 uint32_t deviceID;
+/** The Mesh broadcast ID, created from node ID */
+uint32_t broadcastID;
 
 /** Map message buffer */
 mapMsg syncMsg;
@@ -50,17 +52,19 @@ time_t syncTime = INIT_SYNCTIME;
 
 /**
  * Sleep and Listen time definitions 
+ * Calculated with Semtech SX1261 Calculater
+ * SF 7, BW 250, CR 4/5 PreambleLen 8 PayloadLen 253 Hdr enabled CRC enabled
  * 2 -> number of preambles required to detect package 
- * 1024 -> length of a symbol im ms
+ * 512 -> length of a symbol im ms
  * 1000 -> wake time is in us
  * 15.625 -> SX126x counts in increments of 15.625 us
  * 
  * 10 -> max length we can sleep in symbols 
- * 1024 -> length of a symbol im ms
+ * 512 -> length of a symbol im ms
  * 1000 -> sleep time is in us
  * 15.625 -> SX126x counts in increments of 15.625 us
  */
-#define RX_SLEEP_TIMES 2 * 1024 * 1000 * 15.625, 10 * 1024 * 1000 * 15.625
+#define RX_SLEEP_TIMES 2 * 512 * 1000 * 15.625, 10 * 512 * 1000 * 15.625
 
 typedef enum
 {
@@ -111,6 +115,7 @@ void initMesh(MeshEvents_t *events, int numOfNodes)
 
 	_numOfNodes = numOfNodes;
 
+	// Prepare empty nodes map
 	nodesMap = (nodesList *)malloc(_numOfNodes * sizeof(nodesList));
 
 	if (nodesMap == NULL)
@@ -122,6 +127,19 @@ void initMesh(MeshEvents_t *events, int numOfNodes)
 		myLog_d("Memory for nodes map is allocated");
 	}
 	memset(nodesMap, 0, _numOfNodes * sizeof(nodesList));
+
+	// // Prepare empty names map
+	// namesMap = (namesList *)malloc(_numOfNodes * sizeof(namesList));
+
+	// if (namesMap == NULL)
+	// {
+	// 	myLog_e("Could not allocate memory for names map");
+	// }
+	// else
+	// {
+	// 	myLog_d("Memory for names map is allocated");
+	// }
+	// memset(namesMap, 0, _numOfNodes * sizeof(namesList));
 
 	// Create queue
 	sendQueue = xQueueCreate(SEND_QUEUE_SIZE, sizeof(uint8_t));
@@ -136,6 +154,10 @@ void initMesh(MeshEvents_t *events, int numOfNodes)
 	// Create blocking semaphore for nodes list access
 	accessNodeList = xSemaphoreCreateBinary();
 	xSemaphoreGive(accessNodeList);
+
+	// Create broadcast ID
+	broadcastID = deviceID & 0xFFFFFF00;
+	myLog_d("Broadcast ID is %08X", broadcastID);
 
 	// Put LoRa into standby
 	Radio.Standby();
@@ -192,11 +214,8 @@ void meshTask(void *pvParameters)
 	loraState = MESH_IDLE;
 	// Start waiting for data package
 	Radio.Standby();
-
-	SX126xSetDioIrqParams(IRQ_RADIO_ALL,
-						  IRQ_RADIO_ALL,
-						  IRQ_RADIO_NONE, IRQ_RADIO_NONE);
-	Radio.Rx(0);
+	// Radio.Rx(0);
+	Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 
 	time_t txTimeout = millis();
 
@@ -229,11 +248,13 @@ void meshTask(void *pvParameters)
 				}
 				myLog_d("Sending mesh map");
 				syncMsg.from = deviceID;
-				syncMsg.type = 5;
+				syncMsg.type = LORA_NODEMAP;
 				memset(syncMsg.nodes, 0, 48 * 5);
 
 				// Get sub nodes
 				uint8_t subsLen = nodeMap(syncMsg.nodes);
+
+				xSemaphoreGive(accessNodeList);
 
 				if (subsLen != 0)
 				{
@@ -259,8 +280,6 @@ void meshTask(void *pvParameters)
 					myLog_e("Cannot send map because send queue is full");
 				}
 				notifyTimer = millis();
-
-				xSemaphoreGive(accessNodeList);
 			}
 			else
 			{
@@ -277,10 +296,12 @@ void meshTask(void *pvParameters)
 		}
 
 		// Check if loraState is stuck in MESH_TX
-		if ((loraState == MESH_TX) && ((millis() - txTimeout) > 2000))
+		if ((loraState == MESH_TX) && ((millis() - txTimeout) > 7500))
 		{
 			Radio.Standby();
-			Radio.Rx(0);
+			// Radio.Rx(0);
+			Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
+
 			loraState = MESH_IDLE;
 			myLog_e("loraState stuck in TX for 2 seconds");
 		}
@@ -312,10 +333,11 @@ void meshTask(void *pvParameters)
 					loraState = MESH_TX;
 
 					Radio.Standby();
-					SX126xSetCadParams(LORA_CAD_08_SYMBOL, LORA_SPREADING_FACTOR + 13, 10, LORA_CAD_ONLY, 0);
-					SX126xSetDioIrqParams(IRQ_RADIO_ALL,
-										  IRQ_RADIO_ALL,
-										  IRQ_RADIO_NONE, IRQ_RADIO_NONE);
+					Radio.SetCadParams(LORA_CAD_08_SYMBOL, LORA_SPREADING_FACTOR + 13, 10, LORA_CAD_ONLY, 0);
+					// SX126xSetCadParams(LORA_CAD_08_SYMBOL, LORA_SPREADING_FACTOR + 13, 10, LORA_CAD_ONLY, 0);
+					// SX126xSetDioIrqParams(IRQ_RADIO_ALL,
+					// 					  IRQ_RADIO_ALL,
+					// 					  IRQ_RADIO_NONE, IRQ_RADIO_NONE);
 					Radio.StartCad();
 					txTimeout = millis();
 				}
@@ -378,70 +400,70 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 
 	// Restart listening
 	Radio.Standby();
-	Radio.Rx(0);
-	// Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
+	// Radio.Rx(0);
+	Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 
-	/// \todo Check the received data
+	// Check the received data
 	if ((rxBuffer[0] == 'L') && (rxBuffer[1] == 'o') && (rxBuffer[2] == 'R'))
 	{
 		// Valid Mesh data received
 		mapMsg *thisMsg = (mapMsg *)rxBuffer;
 		dataMsg *thisDataMsg = (dataMsg *)rxBuffer;
 
-		if (thisMsg->type == 5)
+		if (thisMsg->type == LORA_NODEMAP)
 		{
-			/// \todo for debug make one node unreachable
+			/// \todo for debug make some nodes unreachable
 #ifdef BROKEN_NET
 			switch (deviceID)
 			{
-			case 0x87EB981E:
-				if ((thisMsg->from == 0x30C2050B) || (thisMsg->from == 0x28B0495F))
+			case 0x1E2F8C8F:
+				if ((thisMsg->from == 0x2DDF3A8F) || (thisMsg->from == 0xFBAFD33E))
 				{
 				}
 				else
 				{
-					myLog_d("0x87EB981E connects only to 0x30C2050B & 0x28B0495F");
+					myLog_d("0x1E2F8C8F connects only to 0x2DDF3A8F & 0xFBAFD33E");
 					return;
 				}
 				break;
-			case 0x30C2050B:
-				if ((thisMsg->from == 0x84E26CBF) || (thisMsg->from == 0x87EB981E))
+			case 0x2DDF3A8F:
+				if ((thisMsg->from == 0xBF6CED4E) || (thisMsg->from == 0x1E2F8C8F))
 				{
 				}
 				else
 				{
-					myLog_d("0x30C2050B connects only to 0x87EB981E & 0x84E26CBF");
+					myLog_d("0x2DDF3A8F connects only to 0x1E2F8C8F & 0xBF6CED4E");
 					return;
 				}
 				break;
-			case 0x28B0495F:
-				if ((thisMsg->from == 0x30C2050B) || (thisMsg->from == 0x87EB981E))
+			case 0xFBAFD33E:
+				if ((thisMsg->from == 0x2DDF3A8F) || (thisMsg->from == 0x1E2F8C8F))
 				{
 				}
 				else
 				{
-					myLog_d("0x28B0495F connects only to 0x87EB981E & 0x30C2050B");
+					myLog_d("0xFBAFD33E connects only to 0x1E2F8C8F & 0x2DDF3A8F");
 					return;
 				}
 				break;
-			case 0x84E26CBF:
-				if ((thisMsg->from == 0x0C666CBF) || (thisMsg->from == 0x87EB981E) || (thisMsg->from == 0x28B0495F))
+			case 0xBF6CED4E:
+				if ((thisMsg->from == 0xBF6C660E) || (thisMsg->from == 0x1E2F8C8F) || (thisMsg->from == 0xFBAFD33E))
 				{
-					myLog_d("No connection from 0x84E26CBF to 0x87EB981E & 0x0C666CBF & 0x28B0495F");
+					myLog_d("No connection from 0xBF6CED4E to 0x1E2F8C8F & 0xBF6C660E & 0xFBAFD33E");
 					return;
 				}
 				break;
-			case 0x0C666CBF:
-				if ((thisMsg->from == 0x84E26CBF) || (thisMsg->from == 0x87EB981E) || (thisMsg->from == 0x30C2050B) || (thisMsg->from == 0x28B0495F))
+			case 0xBF6C660E:
+				if ((thisMsg->from == 0xBF6CED4E) || (thisMsg->from == 0x1E2F8C8F) || (thisMsg->from == 0x2DDF3A8F) || (thisMsg->from == 0xFBAFD33E))
 				{
-					myLog_d("No connection from 0x0C666CBF to 0x87EB981E & 0x84E26CBF & 0x30C2050B & 0x28B0495F");
+					myLog_d("No connection from 0xBF6C660E to 0x1E2F8C8F & 0xBF6CED4E & 0x2DDF3A8F & 0xFBAFD33E");
 					return;
 				}
 				break;
 			default:
-				if ((thisMsg->from == 0x30C2050B) || (thisMsg->from == 0x87EB981E) || (thisMsg->from == 0x28B0495F))
+				if ((thisMsg->from == 0x2DDF3A8F) || (thisMsg->from == 0x1E2F8C8F) || (thisMsg->from == 0xFBAFD33E))
 				{
-					myLog_d("No connection from 0x87EB981E & 0x30C2050B & 0x28B0495F to any other node");
+					myLog_d("No connection from 0x1E2F8C8F & 0x2DDF3A8F & 0xFBAFD33E to any other node");
 					return;
 				}
 				break;
@@ -476,15 +498,6 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 			{
 				nodesChanged = addNode(thisMsg->from, 0, 0);
 
-				// if (!checkValidId(thisMsg->from))
-				// {
-				// 	Serial.printf("** INVALID DIRECT ID: %08X **\n", thisMsg->from);
-				// 	for (int idx = 0; idx < tempSize; idx++)
-				// 	{
-				// 		Serial.printf("%02X ", rxBuffer[idx]);
-				// 	}
-				// 	Serial.println("");
-				// }
 				// Remove nodes that use sending node as hop
 				clearSubs(thisMsg->from);
 
@@ -520,15 +533,6 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 						uint8_t hops = thisMsg->nodes[idx][4];
 						if (subId != deviceID)
 						{
-							// if (!checkValidId(subId))
-							// {
-							// 	Serial.printf("***** INVALID SUB ID: %08X *****\n", subId);
-							// 	for (int idx = 0; idx < tempSize; idx++)
-							// 	{
-							// 		Serial.printf("%02X ", rxBuffer[idx]);
-							// 	}
-							// 	Serial.println("");
-							// }
 							nodesChanged |= addNode(subId, thisMsg->from, hops + 1);
 							myLog_v("Subs %08X", subId);
 						}
@@ -541,16 +545,15 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 				myLog_e("Could not access map to add node");
 			}
 		}
-		else if (thisDataMsg->type == 1)
+		else if (thisDataMsg->type == LORA_DIRECT)
 		{
 			if (thisDataMsg->dest == deviceID)
 			{
 				// Message is for us, call user callback to handle the data
-				myLog_w("Got data message %s", (char *)thisDataMsg->data);
+				myLog_d("Got data message type %c >%s<", thisDataMsg->data[0], (char *)&thisDataMsg->data[1]);
 				if ((_MeshEvents != NULL) && (_MeshEvents->DataAvailable != NULL))
 				{
-					// Serial.println("Forwarding message");
-					_MeshEvents->DataAvailable(thisDataMsg->data, tempSize - 12, rxRssi, rxSnr);
+					_MeshEvents->DataAvailable(thisDataMsg->orig, thisDataMsg->data, tempSize - 12, rxRssi, rxSnr);
 				}
 			}
 			else
@@ -558,7 +561,7 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 				// Message is not for us
 			}
 		}
-		else if (thisDataMsg->type == 2)
+		else if (thisDataMsg->type == LORA_FORWARD)
 		{
 			if (thisDataMsg->dest == deviceID)
 			{
@@ -574,15 +577,15 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 							myLog_i("Route for %lX is direct", route.nodeId);
 							// Destination is a direct
 							thisDataMsg->dest = thisDataMsg->from;
-							thisDataMsg->from = deviceID;
-							thisDataMsg->type = 1;
+							thisDataMsg->from = thisDataMsg->orig;
+							thisDataMsg->type = LORA_DIRECT;
 						}
 						else
 						{
 							myLog_i("Route for %lX is to %lX", route.nodeId, route.firstHop);
 							// Destination is a sub
 							thisDataMsg->dest = route.firstHop;
-							thisDataMsg->type = 2;
+							thisDataMsg->type = LORA_FORWARD;
 						}
 
 						// Put message into send queue
@@ -607,6 +610,36 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
 				// Message is not for us
 			}
 		}
+		else if (thisDataMsg->type == LORA_BROADCAST)
+		{
+			// This is a broadcast. Forward to all direct nodes, but not to the one who sent it
+			myLog_d("Handling broadcast with ID %08X from %08X", thisDataMsg->dest, thisDataMsg->from);
+			// Check if this broadcast is coming from ourself
+			if ((thisDataMsg->dest & 0xFFFFFF00) == (deviceID & 0xFFFFFF00))
+			{
+				myLog_w("We received our own broadcast, dismissing it");
+				return;
+			}
+			// Check if we handled this broadcast already
+			if (isOldBroadcast(thisDataMsg->dest))
+			{
+				myLog_w("Got an old broadcast, dismissing it");
+				return;
+			}
+
+			// Put broadcast into send queue
+			if (!addSendRequest(thisDataMsg, tempSize))
+			{
+				myLog_e("Cannot forward broadcast because send queue is full");
+			}
+
+			// This is a broadcast, call user callback to handle the data
+			myLog_d("Got data broadcast %s", (char *)thisDataMsg->data);
+			if ((_MeshEvents != NULL) && (_MeshEvents->DataAvailable != NULL))
+			{
+				_MeshEvents->DataAvailable(thisDataMsg->from, thisDataMsg->data, tempSize - 12, rxRssi, rxSnr);
+			}
+		}
 	}
 	else
 	{
@@ -624,13 +657,13 @@ void OnRxDone(uint8_t *rxPayload, uint16_t rxSize, int16_t rxRssi, int8_t rxSnr)
  */
 void OnTxDone(void)
 {
-	myLog_w("OnTxDone");
+	myLog_w("LoRa send finished");
 	loraState = MESH_IDLE;
 
 	// Restart listening
 	Radio.Standby();
-	Radio.Rx(0);
-	// Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
+	// Radio.Rx(0);
+	Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 }
 
 /**
@@ -639,13 +672,13 @@ void OnTxDone(void)
  */
 void OnTxTimeout(void)
 {
-	myLog_e("OnTxTimeout");
+	myLog_w("LoRa TX timeout");
 	loraState = MESH_IDLE;
 
 	// Restart listening
 	Radio.Standby();
-	Radio.Rx(0);
-	// Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
+	// Radio.Rx(0);
+	Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 }
 
 /**
@@ -654,13 +687,13 @@ void OnTxTimeout(void)
  */
 void OnTxTimerTimeout(void)
 {
-	myLog_e("OnTxTimerTimeout");
+	myLog_w("LoRa TX SW timer timeout");
 	loraState = MESH_IDLE;
 
 	// Internal timer timeout, maybe some problem with SX126x ???
 	Radio.Standby();
-
-	OnTxTimeout();
+	// Radio.Rx(0);
+	Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 }
 
 /**
@@ -668,7 +701,7 @@ void OnTxTimerTimeout(void)
  */
 void OnRxTimeout(void)
 {
-	myLog_e("OnRxTimeout");
+	myLog_w("LoRa RX timeout");
 
 	if (loraState != MESH_TX)
 	{
@@ -676,8 +709,8 @@ void OnRxTimeout(void)
 
 		// Restart listening
 		Radio.Standby();
-		Radio.Rx(0);
-		// Radio.SetRxDutyCycle(RX_SLEEP_TIMES);}
+		// Radio.Rx(0);
+		Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 	}
 }
 
@@ -686,15 +719,15 @@ void OnRxTimeout(void)
  */
 void OnRxTimerTimeout(void)
 {
-	myLog_e("OnRxTimerTimeout");
+	myLog_w("LoRa RX SW timer timeout");
 	if (loraState != MESH_TX)
 	{
 		loraState = MESH_IDLE;
 
 		// Internal timer timeout, maybe some problem with SX126x ???
 		Radio.Standby();
-
-		OnRxTimeout();
+		// Radio.Rx(0);
+		Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 	}
 }
 
@@ -704,15 +737,15 @@ void OnRxTimerTimeout(void)
  */
 void OnRxError(void)
 {
-	myLog_e("OnRxError");
+	myLog_w("LoRa CRC error");
 	if (loraState != MESH_TX)
 	{
 		loraState = MESH_IDLE;
 
 		// Restart listening
 		Radio.Standby();
-		Radio.Rx(0);
-		// Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
+		// Radio.Rx(0);
+		Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 	}
 }
 
@@ -749,14 +782,18 @@ void OnCadDone(bool cadResult)
 		{
 			myLog_e("CAD returned channel busy %d times, giving up", CAD_RETRY);
 			loraState = MESH_IDLE;
+			channelFreeRetryNum = 0;
 			// Restart listening
 			Radio.Standby();
-			Radio.Rx(0);
-			// Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
+			// Radio.Rx(0);
+			Radio.SetRxDutyCycle(RX_SLEEP_TIMES);
 		}
 		else
 		{
+			// Wait a little bit before retrying
+			delay(250);
 			Radio.Standby();
+			Radio.SetCadParams(LORA_CAD_08_SYMBOL, LORA_SPREADING_FACTOR + 13, 10, LORA_CAD_ONLY, 0);
 			Radio.StartCad();
 		}
 	}
@@ -764,6 +801,7 @@ void OnCadDone(bool cadResult)
 	{
 		myLog_d("CAD returned channel free");
 		myLog_d("Sending %d bytes", txLen);
+		channelFreeRetryNum = 0;
 
 		// Send the data package
 		Radio.Standby();
@@ -794,7 +832,7 @@ bool addSendRequest(dataMsg *package, uint8_t msgSize)
 		int next = SEND_QUEUE_SIZE;
 		for (int idx = 0; idx < SEND_QUEUE_SIZE; idx++)
 		{
-			if (sendMsg[idx].type == 0)
+			if (sendMsg[idx].type == LORA_INVALID)
 			{
 				next = idx;
 				break;
