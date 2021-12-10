@@ -1,4 +1,4 @@
-#ifdef NRF52
+#ifdef NRF52_SERIES
 #include "main.h"
 #include <bluefruit.h>
 

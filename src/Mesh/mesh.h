@@ -74,7 +74,7 @@ extern volatile xQueueHandle meshMsgQueue;
 #define CAD_RETRY 20
 
 // LoRa definitions
-#define RF_FREQUENCY 910000000  // Hz
+#define RF_FREQUENCY 916000000  // Hz
 #define TX_OUTPUT_POWER 22		// dBm
 #define LORA_BANDWIDTH 1		// [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
 #define LORA_SPREADING_FACTOR 7 // [SF7..SF12]

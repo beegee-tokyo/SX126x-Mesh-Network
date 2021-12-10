@@ -8,7 +8,7 @@
 #define LED_BUILTIN 16
 #endif
 
-#ifdef NRF52
+#ifdef NRF52_SERIES
 #if not defined ADAFRUIT
 #undef LED_BUILTIN
 #define LED_BUILTIN 22
@@ -65,7 +65,7 @@ void ledOff(void)
  */
 void setup()
 {
-#ifdef NRF52
+#ifdef ISP4520
 	pinMode(17, OUTPUT);
 	digitalWrite(17, HIGH);
 #endif
@@ -78,7 +78,20 @@ void setup()
 
 #ifdef ADAFRUIT
 	// The serial interface of the nRF52's seems to need some time before it is ready
-	delay(500);
+	time_t serial_timeout = millis();
+	// On nRF52840 the USB serial is not available immediately
+	while (!Serial)
+	{
+		if ((millis() - serial_timeout) < 5000)
+		{
+			delay(100);
+			digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+		}
+		else
+		{
+			break;
+		}
+	}
 #endif
 
 	// Create node ID

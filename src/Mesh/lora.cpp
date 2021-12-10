@@ -52,7 +52,7 @@ int RADIO_RXEN = -1;
 #define LED_BUILTIN 16
 #endif
 #endif
-#ifdef NRF52
+#ifdef NRF52_SERIES
 #ifdef ADAFRUIT
 /** LORA RESET */
 int PIN_LORA_RESET = 31;
@@ -98,7 +98,13 @@ static MeshEvents_t MeshEvents;
 bool initLoRa(void)
 {
 	bool initResult = true;
-#if defined(ESP32) || defined(ADAFRUIT)
+#if defined(_VARIANT_RAK4630_) // WisBlock RAK4631
+	if (lora_rak4630_init() != 0)
+	{
+		myLog_e("Error in hardware init");
+		initResult = false;
+	}
+#elif defined(ESP32) || defined(ADAFRUIT)
 	// Define the HW configuration between MCU and SX126x
 	_hwConfig.CHIP_TYPE = SX1262_CHIP;		   // eByte E22 module with an SX1262
 	_hwConfig.PIN_LORA_RESET = PIN_LORA_RESET; // LORA RESET

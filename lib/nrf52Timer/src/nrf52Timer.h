@@ -1,4 +1,4 @@
-#ifdef NRF52
+#ifdef NRF52_SERIES
 #ifndef _TIMER_H_
 #define _TIMER_H_
 
@@ -20,4 +20,4 @@ extern NRF_TIMER_Type *nrf_timers[5];
 extern TimerClass *Timers[5];
 
 #endif // _TIMER_H_
-#endif // NRF52
+#endif // NRF52_SERIES

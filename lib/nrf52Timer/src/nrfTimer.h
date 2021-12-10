@@ -1,4 +1,4 @@
-#ifdef NRF52
+#ifdef NRF52_SERIES
 /* Copyright (c) 2010 - 2017, Nordic Semiconductor ASA All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -87,7 +87,7 @@ typedef enum
 	NRF_TIMER_TASK_CAPTURE1 = offsetof(NRF_TIMER_Type, TASKS_CAPTURE[1]), ///< Task for capturing the timer value on channel 1.
 	NRF_TIMER_TASK_CAPTURE2 = offsetof(NRF_TIMER_Type, TASKS_CAPTURE[2]), ///< Task for capturing the timer value on channel 2.
 	NRF_TIMER_TASK_CAPTURE3 = offsetof(NRF_TIMER_Type, TASKS_CAPTURE[3]), ///< Task for capturing the timer value on channel 3.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_TASK_CAPTURE4 = offsetof(NRF_TIMER_Type, TASKS_CAPTURE[4]), ///< Task for capturing the timer value on channel 4.
 	NRF_TIMER_TASK_CAPTURE5 = offsetof(NRF_TIMER_Type, TASKS_CAPTURE[5]), ///< Task for capturing the timer value on channel 5.
 #endif
@@ -104,7 +104,7 @@ typedef enum
 	NRF_TIMER_EVENT_COMPARE1 = offsetof(NRF_TIMER_Type, EVENTS_COMPARE[1]), ///< Event from compare channel 1.
 	NRF_TIMER_EVENT_COMPARE2 = offsetof(NRF_TIMER_Type, EVENTS_COMPARE[2]), ///< Event from compare channel 2.
 	NRF_TIMER_EVENT_COMPARE3 = offsetof(NRF_TIMER_Type, EVENTS_COMPARE[3]), ///< Event from compare channel 3.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_EVENT_COMPARE4 = offsetof(NRF_TIMER_Type, EVENTS_COMPARE[4]), ///< Event from compare channel 4.
 	NRF_TIMER_EVENT_COMPARE5 = offsetof(NRF_TIMER_Type, EVENTS_COMPARE[5]), ///< Event from compare channel 5.
 #endif
@@ -120,7 +120,7 @@ typedef enum
 	NRF_TIMER_SHORT_COMPARE1_STOP_MASK = TIMER_SHORTS_COMPARE1_STOP_Msk, ///< Shortcut for stopping the timer based on compare 1.
 	NRF_TIMER_SHORT_COMPARE2_STOP_MASK = TIMER_SHORTS_COMPARE2_STOP_Msk, ///< Shortcut for stopping the timer based on compare 2.
 	NRF_TIMER_SHORT_COMPARE3_STOP_MASK = TIMER_SHORTS_COMPARE3_STOP_Msk, ///< Shortcut for stopping the timer based on compare 3.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_SHORT_COMPARE4_STOP_MASK = TIMER_SHORTS_COMPARE4_STOP_Msk, ///< Shortcut for stopping the timer based on compare 4.
 	NRF_TIMER_SHORT_COMPARE5_STOP_MASK = TIMER_SHORTS_COMPARE5_STOP_Msk, ///< Shortcut for stopping the timer based on compare 5.
 #endif
@@ -128,7 +128,7 @@ typedef enum
 	NRF_TIMER_SHORT_COMPARE1_CLEAR_MASK = TIMER_SHORTS_COMPARE1_CLEAR_Msk, ///< Shortcut for clearing the timer based on compare 1.
 	NRF_TIMER_SHORT_COMPARE2_CLEAR_MASK = TIMER_SHORTS_COMPARE2_CLEAR_Msk, ///< Shortcut for clearing the timer based on compare 2.
 	NRF_TIMER_SHORT_COMPARE3_CLEAR_MASK = TIMER_SHORTS_COMPARE3_CLEAR_Msk, ///< Shortcut for clearing the timer based on compare 3.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_SHORT_COMPARE4_CLEAR_MASK = TIMER_SHORTS_COMPARE4_CLEAR_Msk, ///< Shortcut for clearing the timer based on compare 4.
 	NRF_TIMER_SHORT_COMPARE5_CLEAR_MASK = TIMER_SHORTS_COMPARE5_CLEAR_Msk, ///< Shortcut for clearing the timer based on compare 5.
 #endif
@@ -141,7 +141,7 @@ typedef enum
 {
 	NRF_TIMER_MODE_TIMER = TIMER_MODE_MODE_Timer,	 ///< Timer mode: timer.
 	NRF_TIMER_MODE_COUNTER = TIMER_MODE_MODE_Counter, ///< Timer mode: counter.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_MODE_LOW_POWER_COUNTER = TIMER_MODE_MODE_LowPowerCounter, ///< Timer mode: low-power counter.
 #endif
 } nrf_timer_mode_t;
@@ -183,7 +183,7 @@ typedef enum
 	NRF_TIMER_CC_CHANNEL1,	 ///< Timer capture/compare channel 1.
 	NRF_TIMER_CC_CHANNEL2,	 ///< Timer capture/compare channel 2.
 	NRF_TIMER_CC_CHANNEL3,	 ///< Timer capture/compare channel 3.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_CC_CHANNEL4, ///< Timer capture/compare channel 4.
 	NRF_TIMER_CC_CHANNEL5, ///< Timer capture/compare channel 5.
 #endif
@@ -198,7 +198,7 @@ typedef enum
 	NRF_TIMER_INT_COMPARE1_MASK = TIMER_INTENSET_COMPARE1_Msk, ///< Timer interrupt from compare event on channel 1.
 	NRF_TIMER_INT_COMPARE2_MASK = TIMER_INTENSET_COMPARE2_Msk, ///< Timer interrupt from compare event on channel 2.
 	NRF_TIMER_INT_COMPARE3_MASK = TIMER_INTENSET_COMPARE3_Msk, ///< Timer interrupt from compare event on channel 3.
-#ifdef NRF52
+#ifdef NRF52_SERIES
 	NRF_TIMER_INT_COMPARE4_MASK = TIMER_INTENSET_COMPARE4_Msk, ///< Timer interrupt from compare event on channel 4.
 	NRF_TIMER_INT_COMPARE5_MASK = TIMER_INTENSET_COMPARE5_Msk, ///< Timer interrupt from compare event on channel 5.
 #endif
@@ -582,4 +582,4 @@ __STATIC_INLINE uint32_t nrf_timer_ms_to_ticks(uint32_t time_ms,
 #endif // NRF_TIMER_H__
 
 /** @} */
-#endif // NRF52
+#endif // NRF52_SERIES

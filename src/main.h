@@ -4,7 +4,7 @@
 #include <esp_wifi.h>
 #include <Ticker.h>
 #include <Log/my-log.h>
-#elif defined(NRF52)
+#elif defined(NRF52_SERIES)
 #include <nrf.h>
 #include "nrf_timer.h"
 #include "nrf52Timer.h"

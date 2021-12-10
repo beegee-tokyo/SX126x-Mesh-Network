@@ -1,4 +1,4 @@
-#ifdef NRF52
+#ifdef NRF52_SERIES
 #include <Arduino.h>
 #include "nrf_timer.h"
 #include "nrf52Timer.h"
@@ -56,7 +56,7 @@ void TimerClass::attachInterrupt(funcPtr_t callback, int microsec)
 	if (microsec >= 1 << 28)
 		microsec = (1 << 28) - 1;
 	uint32_t ticks = nrf_timer_us_to_ticks(microsec, NRF_TIMER_FREQ_16MHz);
-	nrf_timer_cc_write(nrf_timer, cc_channel, ticks);
+	nrf_timer_cc_set(nrf_timer, cc_channel, ticks);
 }
 
 // Should be called in the Timer_callbackPtr() function
