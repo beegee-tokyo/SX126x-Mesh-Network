@@ -40,7 +40,7 @@ void initBLE(void)
 
 	Bluefruit.setName(serial_str);
 
-	Bluefruit.autoConnLed(false);
+	Bluefruit.autoConnLed(true);
 
 	Bluefruit.Periph.setConnectCallback(connect_callback);
 	Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
