@@ -75,10 +75,10 @@ int RADIO_RXEN = -1;
 // Singleton for SPI connection to the LoRa chip
 SPIClass SPI_LORA(NRF_SPIM1, MISO, SCK, MOSI);
 #else
-// Singleton for SPI connection to the LoRa chip
-SPIClass SPI_LORA(NRF_SPIM2, MISO, SCK, MOSI);
-#undef LED_BUILTIN
-#define LED_BUILTIN 22
+// // Singleton for SPI connection to the LoRa chip
+// SPIClass SPI_LORA(NRF_SPIM2, MISO, SCK, MOSI);
+// #undef LED_BUILTIN
+// #define LED_BUILTIN 22
 #endif
 #endif
 
@@ -101,7 +101,7 @@ bool initLoRa(void)
 #if defined(_VARIANT_RAK4630_) // WisBlock RAK4631
 	if (lora_rak4630_init() != 0)
 	{
-		myLog_e("Error in hardware init");
+		myLog_e("Error in hardware init RAK4630");
 		initResult = false;
 	}
 #elif defined(ESP32) || defined(ADAFRUIT)
@@ -122,12 +122,12 @@ bool initLoRa(void)
 
 	if (lora_hardware_init(_hwConfig) != 0)
 	{
-		myLog_e("Error in hardware init");
+		myLog_e("Error in hardware init Generic");
 	}
 #else // ISP4520
 	if (lora_isp4520_init(SX1262) != 0)
 	{
-		myLog_e("Error in hardware init");
+		myLog_e("Error in hardware init ISP4520");
 		initResult = false;
 	}
 #endif

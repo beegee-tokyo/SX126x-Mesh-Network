@@ -15,6 +15,11 @@
 #endif
 #endif
 
+#ifdef _VARIANT_RAK4630_
+#undef LED_BUILTIN
+#define LED_BUILTIN LED_GREEN
+#endif
+
 #ifdef ESP32
 /** Timer for the LED control */
 Ticker ledOffTick;
@@ -76,7 +81,8 @@ void setup()
 	// Start Serial
 	Serial.begin(115200);
 
-#ifdef ADAFRUIT
+// defined(_VARIANT_RAK4630_) || defined(ADAFRUIT)
+#if defined(_VARIANT_RAK4630_) || defined(ADAFRUIT)
 	// The serial interface of the nRF52's seems to need some time before it is ready
 	time_t serial_timeout = millis();
 	// On nRF52840 the USB serial is not available immediately
